@@ -1,0 +1,19 @@
+[Unit]
+Description=Local transcription service (faster-whisper on NVIDIA GPU)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# Отредактируйте под своего пользователя и пути установки
+User=spark
+WorkingDirectory=/opt/local-transcribation/server
+EnvironmentFile=/opt/local-transcribation/server/.env
+ExecStart=/bin/sh -c 'exec /opt/local-transcribation/.venv/bin/python -m uvicorn app.main:app --host "$HOST" --port "$PORT"'
+Restart=always
+RestartSec=3
+# Модель должна полностью загрузиться до того, как systemd сочтёт юнит упавшим
+TimeoutStartSec=600
+
+[Install]
+WantedBy=multi-user.target

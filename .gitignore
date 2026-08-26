@@ -1,0 +1,19 @@
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+
+# секреты и локальные конфиги
+.env
+server/.env
+
+# eval: аудио владельца и артефакты прогонов
+eval/audio/
+eval/runs/
+
+# служебное
+.DS_Store
+
+# клон рецепта faster-whisper-dgx-spark
+external/

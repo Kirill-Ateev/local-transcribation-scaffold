@@ -1,0 +1,50 @@
+# Целевой запуск на DGX Spark: рантайм из рецепта paruparu/faster-whisper-dgx-spark,
+# внутри контейнера работает наш FastAPI-сервис (OpenAI-совместимый API + токен).
+#
+# Предварительно: клонировать рецепт рядом с этим файлом:
+#   git clone https://github.com/paruparu/faster-whisper-dgx-spark external/faster-whisper-dgx-spark
+#
+# Требования рецепта: NVIDIA Container Toolkit, драйвер NVIDIA; CUDA 13 хоста трогать не нужно.
+# Запуск: TRANSCRIBE_TOKEN=$(openssl rand -hex 32) docker compose -f deploy/docker-compose.spark.yml up -d --build
+
+services:
+  transcribe:
+    build:
+      # Dockerfile рецепта: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04,
+      # CTranslate2 v4.6.2 собирается из исходников с CUDA, pip-CPU версия подменяется
+      context: ./external/faster-whisper-dgx-spark
+    restart: always
+    # Наш сервис вместо штатного server.py рецепта (тот оставлен для спайк-смоука)
+    command: >
+      python -m uvicorn app.main:app
+      --app-dir /srv/app
+      --host 0.0.0.0 --port 8337
+    environment:
+      # Внутри контейнера слушаем все интерфейсы; наружу — только порт ниже
+      HOST: 0.0.0.0
+      PORT: "8337"
+      WHISPER_MODEL: large-v3       # единственная резидентная модель
+      DEVICE: cuda                  # цель спайка: убедиться, что не cpu
+      COMPUTE_TYPE: float16         # рекомендация рецепта для GPU
+    env_file:
+      # TRANSCRIBE_TOKEN, MAX_UPLOAD_MB, DEFAULT_LANGUAGE, INITIAL_PROMPT — отсюда;
+      # значения выше имеют приоритет над одноимёнными из файла
+      - ../server/.env
+    volumes:
+      # Код нашего сервиса монтируется внутрь образа рецепта
+      - ../server:/srv/app/server:ro
+      # Кэш весов HuggingFace переживает пересоздание контейнера (~3 ГБ large-v3)
+      - hf-cache:/root/.cache/huggingface
+    ports:
+      # Наружу — только в LAN; проброс портов на роутере не настраивать
+      - "8337:8337"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+volumes:
+  hf-cache:
