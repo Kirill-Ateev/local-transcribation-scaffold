@@ -40,8 +40,9 @@ services:
       # Общий кэш весов HuggingFace на томе hf-cache
       HF_HOME: /data/hf
     env_file:
-      # TRANSCRIBE_TOKEN, MAX_UPLOAD_MB, DEFAULT_LANGUAGE, INITIAL_PROMPT — отсюда;
-      # значения из environment выше имеют приоритет над одноимёнными из файла
+      # TRANSCRIBE_TOKEN, AUTH_REQUIRED, MAX_UPLOAD_MB, DEFAULT_LANGUAGE,
+      # INITIAL_PROMPT — отсюда; значения из environment выше имеют приоритет
+      # над одноимёнными из файла
       - ../server/.env
     volumes:
       # Код нашего сервиса монтируется внутрь образа рецепта: /srv/app/app/main.py

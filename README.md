@@ -45,11 +45,14 @@ curl -s -X POST http://127.0.0.1:8337/v1/audio/transcriptions \
      -H "Authorization: Bearer $TOKEN" -F file=@фраза.wav -F language=zh
 ```
 
-Эндпоинты: `POST /v1/audio/transcriptions` (multipart; wav/mp3/flac/m4a/ogg/
-opus/webm или сырой `.pcm` s16le mono 16 kHz; `language`: `auto`/пусто —
-авто-детект по умолчанию, иначе ISO-код; `prompt` — переопределяет серверный
-initial_prompt), `GET /v1/models`, `GET /health` (без авторизации).
-Ошибки: 401 / 400 / 413 / 503+Retry-After.
+Эндпоинты: `POST /v1/audio/transcriptions` (+ алиас `/audio/transcriptions`
+без `/v1` — контракт Self-Hosted провайдера OpenWhispr; multipart; wav/mp3/
+flac/m4a/ogg/opus/webm или сырой `.pcm` s16le mono 16 kHz; `language`:
+`auto`/пусто — авто-детект по умолчанию, иначе ISO-код; `prompt` —
+переопределяет серверный initial_prompt), `GET /v1/models` (+ алиас
+`/models`), `GET /health` (без авторизации; показывает `auth_required`).
+Ошибки: 401 (при `AUTH_REQUIRED=1`, по умолчанию) / 400 / 413 /
+503+Retry-After.
 
 ## Тесты
 

@@ -13,12 +13,15 @@ LANG_OPT="${4:-}"
 echo "== GET /health =="
 curl -fsS "$BASE/health" | python3 -m json.tool
 
-echo "== POST /v1/audio/transcriptions (auth reject check) =="
-if curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/v1/audio/transcriptions" \
-    -F "file=@$0" | grep -q 401; then
-    echo "OK: без токена сервис отвечает 401"
+echo "== POST /v1/audio/transcriptions (auth check) =="
+code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$BASE/v1/audio/transcriptions" \
+    -F "file=@$0")
+if [[ "$code" == "401" ]]; then
+    echo "OK: без токена сервис отвечает 401 (авторизация включена)"
+elif [[ "$code" == "400" ]]; then
+    echo "ВНИМАНИЕ: авторизация отключена (AUTH_REQUIRED=0) — анонимные запросы принимаются"
 else
-    echo "ОШИБКА: запрос без токена не отклонён" >&2
+    echo "ОШИБКА: неожиданный код $code на запрос без токена" >&2
     exit 1
 fi
 

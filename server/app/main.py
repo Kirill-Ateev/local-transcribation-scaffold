@@ -69,6 +69,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "status": holder.status,
             "model": holder.settings.whisper_model,
             "version": VERSION,
+            "auth_required": holder.settings.auth_required,
             "backend": {
                 "runtime": "faster-whisper",
                 "device": holder.device,
@@ -79,7 +80,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             body["error"] = holder.error
         return JSONResponse(content=body)
 
+    # Канонический путь OpenAI Audio API плюс алиас без /v1: контракт Self-Hosted
+    # провайдера OpenWhispr — POST {Server URL}/audio/transcriptions (клиент сам
+    # не добавляет /v1), поэтому сервер принимает оба варианта пути.
     @app.post("/v1/audio/transcriptions", dependencies=[Depends(require_token)])
+    @app.post("/audio/transcriptions", dependencies=[Depends(require_token)])
     async def transcriptions(
         request: Request,
         file: UploadFile = File(...),
@@ -138,8 +143,12 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         }
 
     @app.get("/v1/models", dependencies=[Depends(require_token)])
+    @app.get("/models", dependencies=[Depends(require_token)])
     async def list_models(request: Request):
-        """Совместимость с клиентами протокола OpenAI: единственная резидентная модель."""
+        """Совместимость с клиентами протокола OpenAI: единственная резидентная модель.
+
+        Алиас /models — для клиентов, которые запрашивают список без префикса /v1.
+        """
         settings: Settings = request.app.state.settings
         return {
             "object": "list",

@@ -47,6 +47,20 @@ def test_auth_missing_and_wrong_token(client):
     assert "error" in r2.json()
 
 
+def test_auth_disabled_accepts_anonymous(client, monkeypatch):
+    """AUTH_REQUIRED=0: запросы без заголовка принимаются (доверенная LAN)."""
+    settings = client.app.state.settings
+    monkeypatch.setattr(settings, "auth_required", False)
+    files = {"file": ("s.wav", wav_bytes(tone_bursts(1.0)), "audio/wav")}
+    r = client.post("/audio/transcriptions", files=files)
+    assert r.status_code == 200
+    assert "text" in r.json()
+    # алиас /models тоже открыт
+    assert client.get("/models").status_code == 200
+    # а /health по-прежнему открыт и отражает режим
+    assert client.get("/health").json()["auth_required"] is False
+
+
 def test_transcribe_happy_path_defaults_ru(client):
     files = {"file": ("speech.wav", wav_bytes(tone_bursts(2.0)), "audio/wav")}
     r = client.post("/v1/audio/transcriptions", headers=AUTH, files=files)
@@ -64,6 +78,28 @@ def test_model_param_is_accepted_but_ignored(client):
     assert r.status_code == 200
     holder = client.app.state.holder
     assert holder.load_count == 1, "переключение модели не должно грузить веса"
+
+
+def test_alias_route_without_v1_prefix(client):
+    """Контракт OpenWhispr Self-Hosted: POST {Server URL}/audio/transcriptions."""
+    files = {"file": ("s.wav", wav_bytes(tone_bursts(1.0)), "audio/wav")}
+    r = client.post("/audio/transcriptions", headers=AUTH, files=files)
+    assert r.status_code == 200
+    assert "text" in r.json()
+
+
+def test_alias_route_requires_token(client):
+    files = {"file": ("a.wav", wav_bytes(silence(0.5)), "audio/wav")}
+    r = client.post("/audio/transcriptions", files=files)
+    assert r.status_code == 401
+
+
+def test_models_alias_without_v1_prefix(client):
+    r = client.get("/models", headers=AUTH)
+    assert r.status_code == 200
+    assert r.json()["object"] == "list"
+    r_noauth = client.get("/models")
+    assert r_noauth.status_code == 401
 
 
 def test_language_override_en(client):

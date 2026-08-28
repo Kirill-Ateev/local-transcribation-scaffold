@@ -79,6 +79,9 @@ def _bool_env(name: str, default: bool) -> bool:
 @dataclass
 class Settings:
     token: str = field(default_factory=_require_token)
+    # Требовать Authorization: Bearer на защищённых эндпоинтах. По умолчанию — да;
+    # AUTH_REQUIRED=0 отключает проверку (доверенная LAN, клиенты без заголовков).
+    auth_required: bool = field(default_factory=lambda: _bool_env("AUTH_REQUIRED", True))
     whisper_model: str = field(
         default_factory=lambda: os.environ.get("WHISPER_MODEL", DEFAULT_MODEL_ID)
     )
@@ -105,4 +108,4 @@ class Settings:
         return self.max_upload_mb * 1024 * 1024
 
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"

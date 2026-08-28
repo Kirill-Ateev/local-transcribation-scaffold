@@ -34,6 +34,16 @@ def test_default_capglue_enabled(monkeypatch):
     assert Settings().capglue is True
 
 
+def test_auth_required_default_true(monkeypatch):
+    monkeypatch.delenv("AUTH_REQUIRED", raising=False)
+    assert Settings().auth_required is True
+
+
+def test_env_can_disable_auth(monkeypatch):
+    monkeypatch.setenv("AUTH_REQUIRED", "0")
+    assert Settings().auth_required is False
+
+
 def test_env_overrides_model_and_language(monkeypatch):
     monkeypatch.setenv("WHISPER_MODEL", "tiny")
     monkeypatch.setenv("DEFAULT_LANGUAGE", "en")
