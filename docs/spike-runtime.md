@@ -45,4 +45,4 @@
 ## Вывод
 
 Основной путь подтверждён / применён фолбэк №____. Итоговая конфигурация сервиса:
-`WHISPER_MODEL=large-v3 DEVICE=____ COMPUTE_TYPE=____`
+`WHISPER_MODEL=SoybeanMilk/faster-whisper-Breeze-ASR-25 DEVICE=____ COMPUTE_TYPE=____`

@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Smoke-check развёрнутого сервиса: health + контрольная транскрибация.
 # Использование:
-#   ./smoke.sh http://<spark-ip>:8337 <token> [control.wav]
+#   ./smoke.sh http://<spark-ip>:8337 <token> [control.wav] [language]
+# language опционален: без него сервер применит DEFAULT_LANGUAGE (auto — авто-детект).
 set -euo pipefail
 
 BASE="${1:?укажите базовый URL, например http://192.168.1.50:8337}"
 TOKEN="${2:?укажите токен}"
 CONTROL="${3:-}"
+LANG_OPT="${4:-}"
 
 echo "== GET /health =="
 curl -fsS "$BASE/health" | python3 -m json.tool
@@ -22,10 +24,11 @@ fi
 
 if [[ -n "$CONTROL" ]]; then
     echo "== контрольная транскрибация ($CONTROL) =="
-    curl -fsS -X POST "$BASE/v1/audio/transcriptions" \
-        -H "Authorization: Bearer $TOKEN" \
-        -F "file=@$CONTROL" \
-        -F "language=ru"
+    args=( -X POST "$BASE/v1/audio/transcriptions"
+           -H "Authorization: Bearer $TOKEN"
+           -F "file=@$CONTROL" )
+    [[ -n "$LANG_OPT" ]] && args+=( -F "language=$LANG_OPT" )
+    curl -fsS "${args[@]}"
     echo
 fi
 

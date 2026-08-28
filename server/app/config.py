@@ -50,11 +50,18 @@ def _require_token() -> str:
     return token
 
 
+# Единственная резидентная модель: CT2-конверсия MediaTek Breeze-ASR-25
+# (fine-tune Whisper large-v2, оптимизация под традиционный китайский + английский).
+DEFAULT_MODEL_ID = "SoybeanMilk/faster-whisper-Breeze-ASR-25"
+# Язык по умолчанию: "auto" — автораспознавание на каждый запрос.
+DEFAULT_LANG = "auto"
+
+
 @dataclass
 class Settings:
     token: str = field(default_factory=_require_token)
     whisper_model: str = field(
-        default_factory=lambda: os.environ.get("WHISPER_MODEL", "large-v3")
+        default_factory=lambda: os.environ.get("WHISPER_MODEL", DEFAULT_MODEL_ID)
     )
     device: str = field(default_factory=lambda: os.environ.get("DEVICE", "auto"))
     compute_type: str = field(
@@ -66,7 +73,7 @@ class Settings:
         default_factory=lambda: _int_env("MAX_UPLOAD_MB", 512)
     )
     default_language: str = field(
-        default_factory=lambda: os.environ.get("DEFAULT_LANGUAGE", "ru")
+        default_factory=lambda: os.environ.get("DEFAULT_LANGUAGE", DEFAULT_LANG)
     )
     initial_prompt: str = field(
         default_factory=lambda: os.environ.get("INITIAL_PROMPT", "")

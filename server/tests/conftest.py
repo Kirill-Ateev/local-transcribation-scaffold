@@ -12,6 +12,9 @@ import pytest
 
 os.environ.setdefault("TRANSCRIBE_TOKEN", "test-token")
 os.environ.setdefault("WHISPER_MODEL", "tiny")
+# В тестах фиксируем язык: ответ info.language детерминирован (не зависит от
+# авто-детекта тональных всплесков на tiny).
+os.environ.setdefault("DEFAULT_LANGUAGE", "ru")
 os.environ.setdefault("DEVICE", "cpu")
 os.environ.setdefault("COMPUTE_TYPE", "int8")
 os.environ.setdefault("MAX_UPLOAD_MB", "8")
