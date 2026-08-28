@@ -15,8 +15,10 @@ services:
   transcribe:
     build:
       # Dockerfile рецепта: nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04,
-      # CTranslate2 v4.6.2 собирается из исходников с CUDA, pip-CPU версия подменяется
+      # CTranslate2 v4.6.2 собирается из исходников с CUDA, pip-CPU версия подменяется.
+      # ВАЖНО: Dockerfile лежит в подкаталоге docker/ репо рецепта, не в корне.
       context: ../external/faster-whisper-dgx-spark
+      dockerfile: docker/Dockerfile
     image: faster-whisper-spark:local
     restart: always
     # Наш сервис вместо штатного server.py рецепта (тот оставлен для спайк-смоука).
@@ -62,6 +64,7 @@ services:
   download-model:
     build:
       context: ../external/faster-whisper-dgx-spark
+      dockerfile: docker/Dockerfile
     image: faster-whisper-spark:local
     profiles: ["download"]
     init: true

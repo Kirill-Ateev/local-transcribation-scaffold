@@ -33,12 +33,19 @@ fine-tune Whisper large-v2: традиционный китайский + анг
 git clone https://github.com/paruparu/faster-whisper-dgx-spark external/faster-whisper-dgx-spark
 cd external/faster-whisper-dgx-spark
 docker compose build && docker compose up -d
-curl http://localhost:8002/health        # ожидаем device=cuda
+curl http://localhost:8002/health        # ожидаем device=cuda (+ запуск требует времени)
 curl -X POST http://localhost:8002/transcribe -F "file=@test/003.wav" -F "vad_filter=true"
 ```
 
 Если `/health` показывает не `cuda` — дальше не идти, зафиксировать вывод в
 `docs/spike-runtime.md` и разбираться с рецептом/драйвером.
+
+Примечание: сразу после `up` рецепта curl может отвечать «Connection reset by
+peer» — server.py рецепта грузит large-v3 до открытия порта (первый старт ещё
+и скачивает веса). Дождитесь готовности по `docker logs -f` или повторным
+curl. После успешного смоука контейнер рецепта можно остановить
+(`docker compose down` в каталоге рецепта) — образ и кэш сборки останутся, их
+переиспользует наш compose на шаге A.1.
 
 ### A.1. Наш сервис внутри контейнера рецепта
 
