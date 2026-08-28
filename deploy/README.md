@@ -29,6 +29,22 @@ fine-tune Whisper large-v2: традиционный китайский + анг
 
 ### A.0. Смоук рантайма рецепта (штатный server.py рецепта)
 
+Это **однократная проверка рантайма**, не часть целевого стека: контейнер
+рецепта после проверки останавливается, а вот клон в `external/` нужен
+постоянно — из него наш compose собирает образ на шаге A.1.
+
+Чтобы остановить контейнер:
+
+```bash
+cd external/faster-whisper-dgx-spark && docker compose down && cd ../..
+```
+
+Если захочется освободить и 8.35 ГБ диска — потом
+
+```bash
+docker rmi whisper-test-whisper, это опционально.
+```
+
 ```bash
 git clone https://github.com/paruparu/faster-whisper-dgx-spark external/faster-whisper-dgx-spark
 cd external/faster-whisper-dgx-spark
@@ -43,9 +59,9 @@ curl -X POST http://localhost:8002/transcribe -F "file=@test/003.wav" -F "vad_fi
 Примечание: сразу после `up` рецепта curl может отвечать «Connection reset by
 peer» — server.py рецепта грузит large-v3 до открытия порта (первый старт ещё
 и скачивает веса). Дождитесь готовности по `docker logs -f` или повторным
-curl. После успешного смоука контейнер рецепта можно остановить
-(`docker compose down` в каталоге рецепта) — образ и кэш сборки останутся, их
-переиспользует наш compose на шаге A.1.
+curl. После успешного смоука остановите стенд: `docker compose down`
+(в каталоге рецепта) — контейнер удалится, но образ и кэш сборки останутся,
+наш compose на шаге A.1 соберётся из кэша за секунды.
 
 ### A.1. Наш сервис внутри контейнера рецепта
 
