@@ -5,24 +5,27 @@ services:
       dockerfile: docker/Dockerfile
     image: faster-whisper-spark:local
     restart: always
-    # ВАЖНО: Добавлен runtime: nvidia и NVIDIA_VISIBLE_DEVICES
     runtime: nvidia
+    command: >
+      python3 -m uvicorn app.main:app
+      --app-dir /srv/app
+      --host 0.0.0.0 --port 8337
     environment:
-      - NVIDIA_VISIBLE_DEVICES=all  # Доступ ко всем GPU
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility  # Минимум для вычислений
-      HOST: 0.0.0.0
-      PORT: "8337"
-      WHISPER_MODEL: SoybeanMilk/faster-whisper-Breeze-ASR-25
-      DEVICE: cuda
-      COMPUTE_TYPE: float16
-      HF_HOME: /data/hf
+      HOST: '0.0.0.0'
+      PORT: '8337'
+      WHISPER_MODEL: 'SoybeanMilk/faster-whisper-Breeze-ASR-25'
+      DEVICE: 'cuda'
+      COMPUTE_TYPE: 'float16'
+      HF_HOME: '/data/hf'
+      NVIDIA_VISIBLE_DEVICES: 'all'
+      NVIDIA_DRIVER_CAPABILITIES: 'compute,utility'
     env_file:
       - ../server/.env
     volumes:
       - ../server:/srv/app:ro
       - hf-cache:/data/hf
     ports:
-      - "8337:8337"
+      - '8337:8337'
     deploy:
       resources:
         reservations:
