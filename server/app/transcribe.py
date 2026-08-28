@@ -12,6 +12,7 @@ from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
 
 from .config import Settings
+from .postprocess import apply_capglue
 
 log = logging.getLogger("transcribe.service")
 
@@ -71,7 +72,14 @@ class ModelHolder:
 
     def transcribe(self, audio: np.ndarray, language: str | None,
                    initial_prompt: str | None) -> tuple[str, str, float]:
-        """Синхронная транскрипция под замком: запросы обрабатываются по одному."""
+        """Синхронная транскрипция под замком: запросы обрабатываются по одному.
+
+        Параметры декодера выбраны по рекомендациям для Breeze-ASR-25:
+        condition_on_previous_text=False — быстрее всего гасит петли/повторы
+        (анти-галлюцинации; у Breeze, как и у базовой large-v2, срывов мало),
+        VAD режет тишину до модели. Пороги CT2 (compression_ratio_threshold
+        и т.п.) оставлены дефолтными — ужесточение на базе v2 вреда не даёт.
+        """
         assert self._model is not None
         with self.inference_lock:
             started = time.monotonic()
@@ -93,6 +101,14 @@ class ModelHolder:
             )
             parts = [segment.text for segment in segments]
             text = " ".join(part.strip() for part in parts if part.strip())
+            if self.settings.capglue:
+                glued = apply_capglue(text)
+                if glued != text:
+                    log.info(
+                        "capglue: починены стыки предложений (%d -> %d символов)",
+                        len(text), len(glued),
+                    )
+                text = glued
             elapsed = time.monotonic() - started
             log.info(
                 "transcribed duration=%.1fs took=%.2fs lang=%s chars=%d",

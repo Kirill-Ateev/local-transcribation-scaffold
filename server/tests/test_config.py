@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
-from app.config import DEFAULT_LANG, DEFAULT_MODEL_ID, Settings
+from app.config import (
+    DEFAULT_INITIAL_PROMPT,
+    DEFAULT_LANG,
+    DEFAULT_MODEL_ID,
+    Settings,
+)
 
 
 def test_default_model_is_breeze(monkeypatch):
@@ -17,9 +22,29 @@ def test_default_language_is_auto(monkeypatch):
     assert s.default_language == DEFAULT_LANG == "auto"
 
 
+def test_default_prompt_is_promptv3(monkeypatch):
+    monkeypatch.delenv("INITIAL_PROMPT", raising=False)
+    s = Settings()
+    assert s.initial_prompt == DEFAULT_INITIAL_PROMPT
+    assert "Preserve English in Latin" in s.initial_prompt
+
+
+def test_default_capglue_enabled(monkeypatch):
+    monkeypatch.delenv("CAPGLUE", raising=False)
+    assert Settings().capglue is True
+
+
 def test_env_overrides_model_and_language(monkeypatch):
     monkeypatch.setenv("WHISPER_MODEL", "tiny")
     monkeypatch.setenv("DEFAULT_LANGUAGE", "en")
     s = Settings()
     assert s.whisper_model == "tiny"
     assert s.default_language == "en"
+
+
+def test_env_can_disable_capglue_and_prompt(monkeypatch):
+    monkeypatch.setenv("CAPGLUE", "0")
+    monkeypatch.setenv("INITIAL_PROMPT", "")
+    s = Settings()
+    assert s.capglue is False
+    assert s.initial_prompt == ""

@@ -8,9 +8,17 @@ push-to-talk. Только батч, только локальная сеть.
 
 ```
 MacBook (OpenWhispr)  ──HTTP──▶  DGX Spark (FastAPI + faster-whisper)
-  хоткей → запись                  VAD (Silero) → breeze-asr-25 → текст
+  хоткей → запись                  VAD (Silero) → breeze-asr-25 → capglue → текст
   ◀── вставка в курсор ──────────  JSON {"text", "language", "duration"}
 ```
+
+Конфигурация модели — по лучшему конфигу Breeze-ASR-25 из бенчмарка
+«23 ASR-модели для русской айтишной диктовки» (июнь 2026, Q=90.7, #1
+open-source; на live-диктовке — #1 вообще): дефолтный промпт **promptv3**
+(сохранение латиницы английских терминов) + постобработка **capglue**
+(починка склеек предложений — специфика Breeze). Оба живут на сервере,
+клиенту настраивать нечего; отключаются через `INITIAL_PROMPT=` / `CAPGLUE=0`.
+Анти-петлевой контур (`condition_on_previous_text=False`, VAD) уже в коде.
 
 ## Быстрый старт (сервер)
 
@@ -39,8 +47,9 @@ curl -s -X POST http://127.0.0.1:8337/v1/audio/transcriptions \
 
 Эндпоинты: `POST /v1/audio/transcriptions` (multipart; wav/mp3/flac/m4a/ogg/
 opus/webm или сырой `.pcm` s16le mono 16 kHz; `language`: `auto`/пусто —
-авто-детект по умолчанию, иначе ISO-код), `GET /v1/models`, `GET /health`
-(без авторизации). Ошибки: 401 / 400 / 413 / 503+Retry-After.
+авто-детект по умолчанию, иначе ISO-код; `prompt` — переопределяет серверный
+initial_prompt), `GET /v1/models`, `GET /health` (без авторизации).
+Ошибки: 401 / 400 / 413 / 503+Retry-After.
 
 ## Тесты
 

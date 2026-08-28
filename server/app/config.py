@@ -52,9 +52,28 @@ def _require_token() -> str:
 
 # Единственная резидентная модель: CT2-конверсия MediaTek Breeze-ASR-25
 # (fine-tune Whisper large-v2, оптимизация под традиционный китайский + английский).
+# ВАЖНО: именно -25; следующее поколение Breeze-ASR-26 на русско-английском
+# материале непригодно (выводит иероглифы).
 DEFAULT_MODEL_ID = "SoybeanMilk/faster-whisper-Breeze-ASR-25"
-# Язык по умолчанию: "auto" — автораспознавание на каждый запрос.
+# Язык по умолчанию: "auto" — автораспознавание на каждый запрос. Для
+# code-switching авто-детект работает лучше фиксации языка (бенчмарк ASR 2026).
 DEFAULT_LANG = "auto"
+
+# Дефолтный initial_prompt — «promptv3» из бенчмарка ASR 2026: прямая
+# англоязычная инструкция, лучший конфиг Breeze-ASR-25 (Q=90.7, #1 open-source;
+# в паре с capglue). Применяется, если клиент не прислал свой prompt.
+DEFAULT_INITIAL_PROMPT = (
+    "Bilingual Russian-English speech transcription. Russian text with embedded "
+    "English IT terms. Preserve English in Latin: Claude Code, GitHub, feature "
+    "branch, CI/CD pipeline, deployment."
+)
+
+
+def _bool_env(name: str, default: bool) -> bool:
+    raw = os.environ.get(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw not in ("0", "false", "no", "off")
 
 
 @dataclass
@@ -76,12 +95,14 @@ class Settings:
         default_factory=lambda: os.environ.get("DEFAULT_LANGUAGE", DEFAULT_LANG)
     )
     initial_prompt: str = field(
-        default_factory=lambda: os.environ.get("INITIAL_PROMPT", "")
+        default_factory=lambda: os.environ.get("INITIAL_PROMPT", DEFAULT_INITIAL_PROMPT)
     )
+    # Постобработка capglue (починка склеек предложений Breeze); см. app/postprocess.py
+    capglue: bool = field(default_factory=lambda: _bool_env("CAPGLUE", True))
 
     @property
     def max_upload_bytes(self) -> int:
         return self.max_upload_mb * 1024 * 1024
 
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"

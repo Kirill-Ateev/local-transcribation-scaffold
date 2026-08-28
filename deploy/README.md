@@ -16,6 +16,12 @@ fine-tune Whisper large-v2: традиционный китайский + анг
 веса fp16, ~3.1 ГБ). Модель меняется переменной `WHISPER_MODEL` (в compose или
 `server/.env`); язык по умолчанию — авто-детект (`DEFAULT_LANGUAGE=auto`).
 
+Оптимизация под русско-английскую IT-диктовку уже включена на сервере
+(лучший конфиг Breeze из бенчмарка ASR 2026): дефолтный промпт promptv3
+(`INITIAL_PROMPT`) и post-обработка capglue (`CAPGLUE=1`). Не поднимайте
+модель на Breeze-ASR-26 — на русско-английском материале она выводит
+иероглифы.
+
 ## Вариант A (основной): рецепт faster-whisper-dgx-spark
 
 Предпосылки: NVIDIA Container Toolkit установлен, драйвер NVIDIA работает;
