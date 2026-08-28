@@ -54,11 +54,17 @@ flac/m4a/ogg/opus/webm или сырой `.pcm` s16le mono 16 kHz; `language`:
 Ошибки: 401 (при `AUTH_REQUIRED=1`, по умолчанию) / 400 / 413 /
 503+Retry-After.
 
+Если применены новые изменения, например после git pull, то перезапустить контейнер — пересборка НЕ нужна, код монтируется с хоста
+
+````bash
+docker compose -f deploy/docker-compose.spark.yml restart
+```bash
+
 ## Тесты
 
 ```bash
 .venv/bin/python -m pytest        # конфиг pytest.ini: сервер на tiny/CPU, ~1 мин
-```
+````
 
 Длинное аудио (локальный прокси-тест часовой записи):
 `.venv/bin/python server/scripts/test_hour_long.py`
@@ -80,8 +86,8 @@ flac/m4a/ogg/opus/webm или сырой `.pcm` s16le mono 16 kHz; `language`:
 
 - DGX Spark: `deploy/README.md` — вариант A (основной): Docker-рецепт
   [`faster-whisper-dgx-spark`](https://github.com/paruparu/faster-whisper-dgx-spark)
-  + наш сервис в его контейнере (`deploy/docker-compose.spark.yml`);
-  вариант B (альтернатива): venv + systemd; LAN-bind, smoke-check
+  - наш сервис в его контейнере (`deploy/docker-compose.spark.yml`);
+    вариант B (альтернатива): venv + systemd; LAN-bind, smoke-check
 - MacBook: `client/README.md` (OpenWhispr как custom provider, замер латентности)
 - Спайк рантайма GB10: `docs/spike-runtime.md`
 
