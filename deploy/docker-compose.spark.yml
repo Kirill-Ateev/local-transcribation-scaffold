@@ -31,12 +31,13 @@ services:
     environment:
       # Внутри контейнера слушаем все интерфейсы; наружу — только порт ниже
       HOST: 0.0.0.0
-      PORT: "8337"
+      PORT: '8337'
       # Единственная резидентная модель (приоритет compose выше server/.env —
       # для смены модели правьте здесь)
       WHISPER_MODEL: SoybeanMilk/faster-whisper-Breeze-ASR-25
-      DEVICE: cuda                  # цель спайка: убедиться, что не cpu
-      COMPUTE_TYPE: float16         # рекомендация рецепта для GPU; веса уже fp16
+      DEVICE: cuda # цель спайка: убедиться, что не cpu
+      COMPUTE_TYPE: float16 # рекомендация рецепта для GPU; веса уже fp16
+      CUDA_CACHE_PATH: /data/nv-cache
       # Общий кэш весов HuggingFace на томе hf-cache
       HF_HOME: /data/hf
     env_file:
@@ -51,7 +52,7 @@ services:
       - hf-cache:/data/hf
     ports:
       # Наружу — только в LAN; проброс портов на роутере не настраивать
-      - "8337:8337"
+      - '8337:8337'
     deploy:
       resources:
         reservations:
@@ -67,7 +68,7 @@ services:
       context: ../external/faster-whisper-dgx-spark
       dockerfile: docker/Dockerfile
     image: faster-whisper-spark:local
-    profiles: ["download"]
+    profiles: ['download']
     init: true
     command: python3 /srv/app/scripts/download_model.py
     environment:
@@ -77,6 +78,8 @@ services:
     volumes:
       - ../server:/srv/app:ro
       - hf-cache:/data/hf
+      - nv-cache:/data/nv-cache
 
 volumes:
   hf-cache:
+  nv-cache:
