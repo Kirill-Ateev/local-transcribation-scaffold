@@ -7,6 +7,7 @@ import logging
 import threading
 import time
 
+import ctranslate2
 import numpy as np
 from faster_whisper import WhisperModel
 from faster_whisper.audio import decode_audio
@@ -38,6 +39,7 @@ class ModelHolder:
         self.device = settings.device
         self.compute_type = settings.compute_type
         self.load_count = 0
+        self.warmup_seconds = 0.0
         self.inference_lock = threading.Lock()
         self._model: WhisperModel | None = None
 
@@ -47,11 +49,17 @@ class ModelHolder:
     def _load(self) -> None:
         try:
             started = time.monotonic()
+            cuda_count = ctranslate2.get_cuda_device_count()
             log.info(
-                "loading model=%s device=%s compute_type=%s",
+                "loading model=%s device=%s compute_type=%s ct2=%s cuda_devices=%d",
                 self.settings.whisper_model, self.settings.device,
-                self.settings.compute_type,
+                self.settings.compute_type, ctranslate2.__version__, cuda_count,
             )
+            if self.settings.device == "cuda" and cuda_count == 0:
+                raise RuntimeError(
+                    "DEVICE=cuda, но CTranslate2 не видит CUDA-устройств — "
+                    "проверьте проброс GPU (nvidia-smi внутри контейнера)"
+                )
             self._model = WhisperModel(
                 self.settings.whisper_model,
                 device=self.settings.device,
@@ -63,6 +71,7 @@ class ModelHolder:
             except AttributeError:
                 pass
             self.load_count += 1
+            self._warmup()
             self.status = "ready"
             log.info("model ready in %.1fs", time.monotonic() - started)
         except Exception as exc:  # noqa: BLE001 - состояние должно попасть в /health
@@ -70,15 +79,40 @@ class ModelHolder:
             self.error = str(exc)
             log.exception("model loading failed")
 
+    def _warmup(self) -> None:
+        """Прогрев до статуса ready: CUDA-контекст, JIT-компиляция ядер под GB10,
+        cuBLAS/cuDNN и инициализация Silero VAD. Без него всё это оплачивает
+        первый реальный запрос (~20 с). Ошибка прогрева не валит старт."""
+        assert self._model is not None
+        try:
+            probe = (0.1 * np.sin(2 * np.pi * 440.0 * np.arange(16000) / 16000)).astype(np.float32)
+            warm_started = time.monotonic()
+            with self.inference_lock:
+                # vad=False: полный проход энкодер+декодер (с VAD чистый тон
+                # мог бы быть отрезан как «не речь», и декодер не прогрелся бы);
+                # vad=True: инициализация модели VAD.
+                for vad in (False, True):
+                    list(self._model.transcribe(
+                        probe, language="ru", beam_size=1, temperature=0.0,
+                        without_timestamps=True, vad_filter=vad,
+                    ))
+            self.warmup_seconds = time.monotonic() - warm_started
+            log.info("warmup done in %.1fs", self.warmup_seconds)
+        except Exception:  # noqa: BLE001
+            log.warning("warmup failed (не критично)", exc_info=True)
+
     def transcribe(self, audio: np.ndarray, language: str | None,
                    initial_prompt: str | None) -> tuple[str, str, float]:
         """Синхронная транскрипция под замком: запросы обрабатываются по одному.
 
-        Параметры декодера выбраны по рекомендациям для Breeze-ASR-25:
-        condition_on_previous_text=False — быстрее всего гасит петли/повторы
-        (анти-галлюцинации; у Breeze, как и у базовой large-v2, срывов мало),
-        VAD режет тишину до модели. Пороги CT2 (compression_ratio_threshold
-        и т.п.) оставлены дефолтными — ужесточение на базе v2 вреда не даёт.
+        Параметры декодера под латентность диктовки на DGX Spark:
+        beam_size=1 — жадный поиск (дефолтный beam 5 делал декодер впятеро дороже);
+        temperature=0.0 — один проход без температурных ретраев, каждый из которых
+        перекодирует 30-с окно заново; для диктовки безопасно — анти-петли гасятся
+        condition_on_previous_text=False + VAD + capglue. Если качество просядет —
+        удалите строку temperature=0.0 (вернутся ретраи) или поднимите beam_size до 3.
+        without_timestamps=True — декодер не предсказывает токены-таймстампы
+        (минус 10–15% шагов декодирования), сегменты крупнее; для диктовки это неважно.
         """
         assert self._model is not None
         with self.inference_lock:
@@ -87,6 +121,8 @@ class ModelHolder:
                 audio,
                 language=language,
                 task="transcribe",
+                beam_size=1,
+                without_timestamps=True,
                 condition_on_previous_text=False,
                 vad_filter=True,
                 vad_parameters={
@@ -94,12 +130,22 @@ class ModelHolder:
                     "min_speech_duration_ms": 250,
                     "min_silence_duration_ms": 500,
                     "speech_pad_ms": 200,
-                    "max_speech_duration_s": 28,
+                    "max_speech_duration_s": 180,
                 },
                 initial_prompt=initial_prompt or None,
                 no_speech_threshold=0.6,
             )
-            parts = [segment.text for segment in segments]
+            parts: list[str] = []
+            max_temp = 0.0
+            speech_s = 0.0
+            seg_count = 0
+            for segment in segments:
+                parts.append(segment.text)
+                seg_count += 1
+                max_temp = max(max_temp, float(segment.temperature))
+                # Оценка речи после VAD: в без-таймстампном режиме сегменты —
+                # это окна вокруг речевых кусков, сумма их длительностей ~ речь.
+                speech_s += segment.end - segment.start
             text = " ".join(part.strip() for part in parts if part.strip())
             if self.settings.capglue:
                 glued = apply_capglue(text)
@@ -111,8 +157,10 @@ class ModelHolder:
                 text = glued
             elapsed = time.monotonic() - started
             log.info(
-                "transcribed duration=%.1fs took=%.2fs lang=%s chars=%d",
-                info.duration, elapsed, info.language, len(text),
+                "transcribed duration=%.1fs speech~%.1fs took=%.2fs lang=%s "
+                "seg=%d chars=%d max_temp=%.2f",
+                info.duration, speech_s, elapsed, info.language,
+                seg_count, len(text), max_temp,
             )
             return text, info.language, float(info.duration)
 
